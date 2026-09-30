@@ -1,0 +1,54 @@
+services:
+  app:
+    image: node:24
+    ports:
+      - 63100:3000
+    volumes:
+      - .:/home/node/project
+    environment:
+      - DATABASE_URL=postgresql://postgres:password@db:5432/web_builder
+    working_dir: /home/node/project
+    user: "1000:1000"
+    command: npm run dev
+    depends_on:
+      - db
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "5"
+    networks:
+      default:
+        aliases:
+          - app.local
+  
+  db:
+    image: postgres:16
+    ports:
+      - 5432:5432
+    restart: always
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=web_builder
+
+  e2e:
+    image: mcr.microsoft.com/playwright:v1.63.0-noble
+    volumes:
+      - ./e2e:/home/ubuntu/e2e
+    environment:
+      - BASE_URL=http://app.local:3000
+    depends_on:
+      - app
+    working_dir: /home/ubuntu/e2e
+    user: "1000:1000"
+    command: sleep infinity
+    init: true
+    # command: npx playwright test
+    # profiles:
+    #   - e2e
+
+volumes:
+  postgres_data:
