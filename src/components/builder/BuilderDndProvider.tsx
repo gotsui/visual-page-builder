@@ -58,16 +58,16 @@ const resolveDropTarget = (
         return null;
     }
 
-    if (overNode.type === "container") {
-        return {
-            parentId: overNode.id,
-            index: overNode.children.length,
-        };
-    }
-
     const parent = findParent(root, overId);
 
     if (!parent) {
+        if (overNode.id === root.id && overNode.type === "container") {
+            return {
+                parentId: root.id,
+                index: root.children.length,
+            };
+        }
+
         return null;
     }
 

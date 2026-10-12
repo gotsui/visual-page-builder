@@ -162,12 +162,23 @@ type BodyProps = {
 const ContainerBody = ({ node, style, children }: BodyProps) => {
     const { state } = useDocumentStore();
     const isEdit = state.ui.previewMode === "edit";
+    const editStyle: CSSProperties = isEdit
+        ? {
+            ...style,
+            minHeight: style.minHeight ?? "40px",
+            minWidth: style.minWidth ?? "48px",
+            paddingTop: style.padding ?? "8px",
+            paddingRight: style.padding ?? "8px",
+            paddingBottom: style.padding ?? "8px",
+            paddingLeft: style.padding ?? "8px",
+        }
+        : style;
 
     return (
         <DroppableContainer
             nodeId={node.id}
-            style={style}
-            disabled={isEdit}
+            style={editStyle}
+            disabled={!isEdit}
         >
             {children}
         </DroppableContainer>
@@ -272,14 +283,6 @@ const ContainerChildren = ({
     const isRow = node.layout?.direction === "row";
     const strategy = isRow ? horizontalListSortingStrategy : verticalListSortingStrategy;
 
-    if (node.children.length === 0) {
-        return (
-            <div className="pointer-events-none select-none py-6 text-center text-xs text-slate-300">
-                ここにドロップ
-            </div>
-        );
-    }
-
     if (!isEdit) {
         return (
             <>
@@ -287,6 +290,14 @@ const ContainerChildren = ({
                     <NodeRenderer key={child.id} node={child} />
                 ))}
             </>
+        );
+    }
+
+    if (node.children.length === 0) {
+        return (
+            <div className="pointer-events-none select-none py-6 text-center text-xs text-slate-300">
+                ここにドロップ
+            </div>
         );
     }
 
@@ -357,7 +368,7 @@ const NodeRenderer = ({
         ? "outline outline-2 outline-blue-500 outline-offset-1"
         : isHoverd
             ? "outline outline-1 outline-blue-300 outline-offset-1"
-            : "";
+            : "outline outline-1 outline-dashed outline-slate-200 outline-offset-0";
 
     const Body = nodeBodyMap[node.type];
     const childNodes = node.type === "container"
