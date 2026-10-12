@@ -187,10 +187,10 @@ const ContainerBody = ({ node, style, children }: BodyProps) => {
 
 const textTagRenderMap: Record<TextTag, (style: CSSProperties, content: string) => ReactNode > = {
     p: (style, content) => <p style={style}>{content}</p>,
-    h1: (style, content) => <h1 style={style}>{content}</h1>,
-    h2: (style, content) => <h2 style={style}>{content}</h2>,
-    h3: (style, content) => <h3 style={style}>{content}</h3>,
-    h4: (style, content) => <h4 style={style}>{content}</h4>,
+    h1: (style, content) => <h1 className="text-4xl font-extrabold tracking-tight" style={style}>{content}</h1>,
+    h2: (style, content) => <h2 className="text-3xl font-bold tracking-tight" style={style}>{content}</h2>,
+    h3: (style, content) => <h3 className="text-2xl font-bold" style={style}>{content}</h3>,
+    h4: (style, content) => <h4 className="text-xl font-semibold" style={style}>{content}</h4>,
     span: (style, content) => <span style={style}>{content}</span>,
 };
 
@@ -257,7 +257,7 @@ const SpacerBody = ({ node }: BodyProps) => {
     const size = readNumberProp(node.props, "size", 16);
 
     return (
-        <div style={{ height: size, width: "100%" }} />
+        <div style={{ height: size, width: "100%", minWidth: 48 }} />
     );
 };
 
