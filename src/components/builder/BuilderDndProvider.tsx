@@ -5,7 +5,6 @@ import { isPaletteDragData, PaletteDragData, parseContainerDropId } from "@/lib/
 import { BuilderNode, NodeType } from "@/lib/schema";
 import { findNode, findParent } from "@/lib/tree-operations";
 import {
-    closestCenter,
     CollisionDetection,
     DndContext,
     DragEndEvent,

@@ -177,11 +177,7 @@ export const moveNode = (
     toParentId: string,
     toIndex: number,
 ): BuilderNode => {
-    if (root.id === nodeId) {
-        return root;
-    }
-
-    if (nodeId === toParentId) {
+    if (root.id === nodeId || nodeId === toParentId) {
         return root;
     }
 
@@ -205,9 +201,9 @@ export const moveNode = (
         ? fromParent.children.findIndex((c) => c.id === nodeId)
         : -1;
 
-    const adjustedIndex = fromParent && fromParent.id === toParentId && fromIndex >= 0 && fromIndex < toIndex
-        ? toIndex - 1
-        : toIndex;
+    if (fromParent && fromParent.id === toParentId && fromIndex === toIndex) {
+        return root;
+    }
 
     const without = removeFromTree(root, nodeId);
 
@@ -215,7 +211,11 @@ export const moveNode = (
         return root;
     }
 
-    return insertIntoTree(without, toParentId, adjustedIndex, node);
+    const parentAfter = findNode(without, toParentId);
+    const maxIndex = parentAfter ? parentAfter.children.length : 0;
+    const insertIndex = Math.max(0, Math.min(toIndex, maxIndex));
+
+    return insertIntoTree(without, toParentId, insertIndex, node);
 };
 
 export type NodePatch = {
