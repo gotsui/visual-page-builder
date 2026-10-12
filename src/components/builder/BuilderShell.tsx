@@ -6,9 +6,10 @@ import { ChangeEvent, useCallback, useEffect, useState } from "react";
 import Palette from "./Palette";
 import { Canvas } from "./Canvas";
 import Inspector from "./Inspector";
+import BuilderDndProvider from "./BuilderDndProvider";
 
 const previewModes: PreveiwMode[] = ["edit", "preview"] as const;
-const breakpoints: Breakpoint[] = ["base", "sm", "md", "lg"] as const;
+const breakpoints: Breakpoint[] = ["lg", "md", "sm", "base"] as const;
 
 const previewModeLabel: Record<PreveiwMode, string> = {
     edit: "編集",
@@ -16,10 +17,10 @@ const previewModeLabel: Record<PreveiwMode, string> = {
 };
 
 const breakpointLabel: Record<Breakpoint, string> = {
-    base: "Mobile",
-    sm: "SM",
-    md: "MD",
     lg: "LG",
+    md: "MD",
+    sm: "SM",
+    base: "Mobile",
 };
 
 const isPreviewMode = (value: string): value is PreveiwMode => {
@@ -140,11 +141,13 @@ const BuilderShell = () => {
     return (
         <div className="flex h-screen flex-col bg-white text-slate-900">
             <BuilderHeader />
-            <div className="flex -min-h-0 flex-1">
-                <Palette />
-                <Canvas />
-                <Inspector />
-            </div>
+            <BuilderDndProvider>
+                <div className="flex -min-h-0 flex-1">
+                    <Palette />
+                    <Canvas />
+                    <Inspector />
+                </div>
+            </BuilderDndProvider>
         </div>
     );
 };

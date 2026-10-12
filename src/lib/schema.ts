@@ -12,7 +12,7 @@ export type Justify = z.infer<typeof JustifySchema>;
 export const AlignSchema = z.enum(["start", "center", "end", "stretch"]);
 export type Align = z.infer<typeof AlignSchema>;
 
-export const BreakpointSchema = z.enum(["base", "sm", "md", "lg"]);
+export const BreakpointSchema = z.enum(["lg", "md", "sm", "base"]);
 export type Breakpoint = z.infer<typeof BreakpointSchema>;
 
 export const LayoutConfigSchema = z.object({
@@ -54,10 +54,10 @@ export const StyleValueSchema = z.object({
 export type StyleValue = z.infer<typeof StyleValueSchema>;
 
 export const ResponsiveStyleSchema = z.object({
-    base: StyleValueSchema.default({}),
-    sm: StyleValueSchema.optional(),
-    md: StyleValueSchema.optional(),
     lg: StyleValueSchema.optional(),
+    md: StyleValueSchema.optional(),
+    sm: StyleValueSchema.optional(),
+    base: StyleValueSchema.default({}),
 });
 export type ResponsiveStyle = z.infer<typeof ResponsiveStyleSchema>;
 
@@ -169,7 +169,7 @@ export const UiStateSchema = z.object({
     selectedNodeId: z.string().uuid().nullable().default(null),
     hoveredNodeId: z.string().uuid().nullable().default(null),
     previewMode: PreviewModeSchema.default("edit"),
-    previewBreakpoint: BreakpointSchema.default("base"),
+    previewBreakpoint: BreakpointSchema.default("lg"),
     isDragging: z.boolean().default(false),
 });
 export type UiState = z.infer<typeof UiStateSchema>;

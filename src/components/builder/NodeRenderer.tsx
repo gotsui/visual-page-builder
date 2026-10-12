@@ -2,7 +2,10 @@
 
 import { useDocumentStore } from "@/lib/document-store";
 import { Align, Breakpoint, BuilderNode, Justify, LayoutConfig, NodeType, ResponsiveStyle, StyleValue } from "@/lib/schema";
+import { horizontalListSortingStrategy, SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSSProperties, MouseEvent, ReactNode } from "react";
+import SortableNode from "./SortableNode";
+import DroppableContainer from "./DroppableContainer";
 
 const justifyMap: Record<Justify, CSSProperties["justifyContent"]> = {
     start: "flex-start",
@@ -44,7 +47,7 @@ const layoutToCss = (layout: LayoutConfig | undefined): CSSProperties => {
 };
 
 const resolveStyle = (style: ResponsiveStyle, breakpoint: Breakpoint): StyleValue => {
-    const order: Breakpoint[] = ["base", "sm", "md", "lg"];;
+    const order: Breakpoint[] = ["lg", "md", "sm", "base"];
     const endIndex = order.indexOf(breakpoint);
 
     return order.slice(0, endIndex + 1).reduce<StyleValue>((acc, key) => {
@@ -156,6 +159,21 @@ type BodyProps = {
     children?: ReactNode;
 };
 
+const ContainerBody = ({ node, style, children }: BodyProps) => {
+    const { state } = useDocumentStore();
+    const isEdit = state.ui.previewMode === "edit";
+
+    return (
+        <DroppableContainer
+            nodeId={node.id}
+            style={style}
+            disabled={isEdit}
+        >
+            {children}
+        </DroppableContainer>
+    );
+};
+
 const textTagRenderMap: Record<TextTag, (style: CSSProperties, content: string) => ReactNode > = {
     p: (style, content) => <p style={style}>{content}</p>,
     h1: (style, content) => <h1 style={style}>{content}</h1>,
@@ -165,74 +183,122 @@ const textTagRenderMap: Record<TextTag, (style: CSSProperties, content: string) 
     span: (style, content) => <span style={style}>{content}</span>,
 };
 
-const nodeBodyMap: Record<NodeType, (props: BodyProps) => ReactNode> = {
-    container: ({ style, children }) => (
-        <div style={style} className="min-h-8 min-w-8">
-            {children}
-        </div>
-    ),
-    text: ({ node, style }) => {
-        const content = readStringProp(node.props, "content", "");
-        const tag = readTextTag(node.props);
-        return textTagRenderMap[tag](style, content);
-    },
-    button: ({ node, style }) => {
-        const label = readStringProp(node.props, "label", "ボタン");
-        const variantClass = readButtonVariantClass(node.props);
+const TextBody = ({ node, style }: BodyProps) => {
+    const content = readStringProp(node.props, "content", "");
+    const tag = readTextTag(node.props);
+    return textTagRenderMap[tag](style, content);
+};
 
+const ButtonBody = ({ node, style }: BodyProps) => {
+    const label = readStringProp(node.props, "label", "ボタン");
+    const variantClass = readButtonVariantClass(node.props);
+
+    return (
+        <button
+            type="button"
+            style={style}
+            className={`rounded px-3 py-1.5 text-sm ${variantClass}`}
+            onClick={(e) => e.preventDefault()}
+        >
+            {label}
+        </button>
+    );
+};
+
+const ImageBody = ({ node, style }: BodyProps) => {
+    const src = readStringProp(node.props, "src", "");
+    const alt = readStringProp(node.props, "alt", "");
+    const objectFit = readObjectFit(node.props);
+
+    if (!src) {
         return (
-            <button
-                type="button"
+            <div
                 style={style}
-                className={`rounded px-3 py-1.5 text-sm ${variantClass}`}
-                onClick={(e) => e.preventDefault()}
+                className="flex h-24 w-40 items-center justify-center bg-slate-100 text-xs text-slate-400"
             >
-                {label}
-            </button>
+                画像未設定
+            </div>
         );
-    },
-    image: ({ node, style }) => {
-        const src = readStringProp(node.props, "src", "");
-        const alt = readStringProp(node.props, "alt", "");
-        const objectFit = readObjectFit(node.props);
+    }
 
-        if (!src) {
-            return (
-                <div
-                    style={style}
-                    className="flex h-24 w-40 items-center justify-center bg-slate-100 text-xs text-slate-400"
-                >
-                    画像未設定
-                </div>
-            );
-        }
+    return (
+        <img src={src} alt={alt} style={{ ...style, objectFit }} />
+    );
+};
 
+const InputBody = ({ node, style }: BodyProps) => {
+    const placeholder = readStringProp(node.props, "placeholder", "");
+    const inputType = readStringProp(node.props, "inputType", "text");
+
+    return (
+        <input
+            type={inputType}
+            placeholder={placeholder}
+            style={style}
+            className="rounded border border-slate-300 px-2 py-1 text-sm"
+            readOnly
+            onMouseDown={(e) => e.preventDefault()}
+        />
+    );
+};
+
+const SpacerBody = ({ node }: BodyProps) => {
+    const size = readNumberProp(node.props, "size", 16);
+
+    return (
+        <div style={{ height: size, width: "100%" }} />
+    );
+};
+
+const nodeBodyMap: Record<NodeType, (props: BodyProps) => ReactNode> = {
+    container: ContainerBody,
+    text: TextBody,
+    button: ButtonBody,
+    image: ImageBody,
+    input: InputBody,
+    spacer: SpacerBody,
+};
+
+type ContainerChildrenProps = {
+    node: BuilderNode;
+    isEdit: boolean;
+};
+
+const ContainerChildren = ({
+    node,
+    isEdit,
+}: ContainerChildrenProps) => {
+    const childIds = node.children.map((child) => child.id);
+    const isRow = node.layout?.direction === "row";
+    const strategy = isRow ? horizontalListSortingStrategy : verticalListSortingStrategy;
+
+    if (node.children.length === 0) {
         return (
-            <img src={src} alt={alt} style={{ ...style, objectFit }} />
+            <div className="pointer-events-none select-none py-6 text-center text-xs text-slate-300">
+                ここにドロップ
+            </div>
         );
-    },
-    input: ({ node, style }) => {
-        const placeholder = readStringProp(node.props, "placeholder", "");
-        const inputType = readStringProp(node.props, "inputType", "text");
+    }
 
+    if (!isEdit) {
         return (
-            <input
-                type={inputType}
-                placeholder={placeholder}
-                style={style}
-                className="rounded border border-slate-300 px-2 py-1 text-sm"
-                readOnly
-                onMouseDown={(e) => e.preventDefault()}
-            />
+            <>
+                {node.children.map((child) => (
+                    <NodeRenderer key={child.id} node={child} />
+                ))}
+            </>
         );
-    },
-    spacer: ({ node }) => {
-        const size = readNumberProp(node.props, "size", 16);
+    }
 
-        return (
-            <div style={{ height: size, width: "100%" }} />
-        );
-    },
+    return (
+        <SortableContext items={childIds} strategy={strategy}>
+            {node.children.map((child) => (
+                <SortableNode key={child.id} id={child.id}>
+                    <NodeRenderer node={child} />
+                </SortableNode>
+            ))}
+        </SortableContext>
+    );
 };
 
 type NodeRendererProps = {
@@ -293,18 +359,14 @@ const NodeRenderer = ({
             ? "outline outline-1 outline-blue-300 outline-offset-1"
             : "";
 
-    const renderBody = nodeBodyMap[node.type];
+    const Body = nodeBodyMap[node.type];
     const childNodes = node.type === "container"
-        ? node.children.map((child) => (
-            <NodeRenderer key={child.id} node={child} />
-        ))
+        ? <ContainerChildren node={node} isEdit={isEdit} />
         : null;
 
     if (!isEdit) {
         return (
-            <>
-                {renderBody({ node, style: margedStyle, children: childNodes })}
-            </>
+            <Body node={node} style={margedStyle} children={childNodes} />
         );
     }
 
@@ -317,7 +379,7 @@ const NodeRenderer = ({
             onMouseEnter={handleMouseEnter}
             onMouseLeave={handleMouseLeave}
         >
-            {renderBody({ node, style: margedStyle, children: childNodes })}
+            <Body node={node} style={margedStyle} children={childNodes} />
         </div>
     );
 };

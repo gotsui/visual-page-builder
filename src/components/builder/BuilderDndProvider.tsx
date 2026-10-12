@@ -1,22 +1,56 @@
 "use client";
 
 import { useDocumentStore } from "@/lib/document-store";
-import { BuilderNode } from "@/lib/schema";
+import { isPaletteDragData, PaletteDragData, parseContainerDropId } from "@/lib/palette-drag";
+import { BuilderNode, NodeType } from "@/lib/schema";
 import { findNode, findParent } from "@/lib/tree-operations";
-import { closestCenter, DndContext, DragEndEvent, DragOverlay, DragStartEvent, PointerSensor, UniqueIdentifier, useSensor, useSensors } from "@dnd-kit/core";
+import {
+    closestCenter,
+    CollisionDetection,
+    DndContext,
+    DragEndEvent,
+    DragOverlay,
+    DragStartEvent,
+    PointerSensor,
+    pointerWithin,
+    rectIntersection,
+    UniqueIdentifier,
+    useSensor,
+    useSensors,
+} from "@dnd-kit/core";
 import { ReactNode, useCallback, useMemo, useState } from "react";
 
 type BuilderDndProviderProps = {
     children: ReactNode;
 };
 
+const collisionDetection: CollisionDetection = (args) => {
+    const pointerCollisions = pointerWithin(args);
+
+    if (pointerCollisions.length > 0) {
+        return pointerCollisions;
+    }
+
+    return rectIntersection(args);
+}
+
 const resolveDropTarget = (
     root: BuilderNode,
-    activeId: string,
     overId: string,
 ): { parentId: string; index: number } | null => {
-    if (activeId === overId) {
-        return null;
+    const dropContainerId = parseContainerDropId(overId);
+
+    if (dropContainerId !== null) {
+        const container = findNode(root, dropContainerId);
+
+        if (!container || container.type !== "container") {
+            return null;
+        }
+
+        return {
+            parentId: container.id,
+            index: container.children.length,
+        };
     }
 
     const overNode = findNode(root, overId);
@@ -50,6 +84,10 @@ const resolveDropTarget = (
     };
 };
 
+const readNodeTypeFromPaletteData = (data: PaletteDragData): NodeType => {
+    return data.nodeType;
+};
+
 const BuilderDndProvider = ({
     children,
 }: BuilderDndProviderProps) => {
@@ -58,24 +96,33 @@ const BuilderDndProvider = ({
     const isEdit = state.ui.previewMode === "edit";
 
     const [activeId, setActiveId] = useState<UniqueIdentifier | null>(null);
+    const [paletteType, setPaletteType] = useState<NodeType | null>(null);
 
     const sensors = useSensors(
         useSensor(PointerSensor, {
-            activationConstraint: { distance: 0 },
+            activationConstraint: { distance: 6 },
         })
     );
 
     const activeNode = useMemo(() => {
-        if (activeId === null) {
-            return;
+        if (activeId === null || paletteType !== null) {
+            return null;
         }
 
         return findNode(root, String(activeId));
-    }, [activeId, root]);
+    }, [activeId, paletteType, root]);
 
     const handleDragStart = useCallback((event: DragStartEvent) => {
         if (!isEdit) {
             return;
+        }
+
+        const data = event.active.data.current;
+
+        if (isPaletteDragData(data)) {
+            setPaletteType(readNodeTypeFromPaletteData(data));
+        } else {
+            setPaletteType(null);
         }
 
         setActiveId(event.active.id);
@@ -84,6 +131,7 @@ const BuilderDndProvider = ({
 
     const handleDragEnd = useCallback((event: DragEndEvent) => {
         setActiveId(null);
+        setPaletteType(null);
         dispatch({ type: "SET_DRAGGING", isDragging: false });
 
         if (!isEdit) {
@@ -91,21 +139,36 @@ const BuilderDndProvider = ({
         }
 
         const { active, over } = event;
+        const data = active.data.current;
 
-        if (!over) {
+        if (!over ) {
+            if (isPaletteDragData(data)) {
+                dispatch({
+                    type: "ADD_NODE",
+                    parentId: root.id,
+                    nodeType: data.nodeType,
+                });
+            }
+
+            return;
+        }
+
+        const overNodeId = String(over.id);
+        const target = resolveDropTarget(root, overNodeId);
+
+        if (isPaletteDragData(data)) {
+            dispatch({
+                type: "ADD_NODE",
+                parentId: target?.parentId ?? root.id,
+                nodeType: data.nodeType,
+                index: target?.index,
+            });
             return;
         }
 
         const activeNodeId = String(active.id);
-        const overNodeId = String(over.id);
 
-        if (activeNodeId === root.id) {
-            return;
-        }
-
-        const target = resolveDropTarget(root, activeNodeId, overNodeId);
-
-        if (!target) {
+        if (activeNodeId === root.id || !target || activeNodeId === target.parentId) {
             return;
         }
 
@@ -119,6 +182,7 @@ const BuilderDndProvider = ({
 
     const handleDragCancel = useCallback(() => {
         setActiveId(null);
+        setPaletteType(null);
         dispatch({ type: "SET_DRAGGING", isDragging: false });
     }, [dispatch]);
 
@@ -133,14 +197,18 @@ const BuilderDndProvider = ({
     return (
         <DndContext
             sensors={sensors}
-            collisionDetection={closestCenter}
+            collisionDetection={collisionDetection}
             onDragStart={handleDragStart}
             onDragEnd={handleDragEnd}
             onDragCancel={handleDragCancel}
         >
             {children}
             <DragOverlay dropAnimation={null}>
-                {activeNode ? (
+                {paletteType ? (
+                    <div className="rounded border border-blue-400 bg-white px-2 py-1 text-xs text-slate-700 shadow-md">
+                        追加: {paletteType}
+                    </div>
+                ) : activeNode ? (
                     <div className="rounded border border-blue-400 bg-white px-2 py-1 text-xs text-slate-700 shadow-md">
                         {activeNode.type}
                     </div>
