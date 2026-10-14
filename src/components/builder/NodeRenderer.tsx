@@ -1,116 +1,20 @@
 "use client";
 
 import { useDocumentStore } from "@/lib/document-store";
-import { Align, Breakpoint, BuilderNode, Justify, LayoutConfig, NodeType, ResponsiveStyle, StyleValue } from "@/lib/schema";
+import { BuilderNode, NodeType } from "@/lib/schema";
 import { horizontalListSortingStrategy, SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSSProperties, MouseEvent, ReactNode } from "react";
 import SortableNode from "./SortableNode";
 import DroppableContainer from "./DroppableContainer";
+import {
+    layoutToCssObject,
+    readNumberProp,
+    readStringProp,
+    resolveStyle,
+    styleValueToCssObject,
+    textTags,
+} from "@/lib/node-view-model";
 
-const justifyMap: Record<Justify, CSSProperties["justifyContent"]> = {
-    start: "flex-start",
-    center: "center",
-    end: "flex-end",
-    between: "space-between",
-    around: "space-around",
-};
-
-const alignMap: Record<Align, CSSProperties["alignItems"]> = {
-    start: "flex-start",
-    center: "center",
-    end: "flex-end",
-    stretch: "stretch",
-};
-
-const spacingToPx = (value: number): string => {
-    return `${value * 4}px`;
-};
-
-const layoutToCss = (layout: LayoutConfig | undefined): CSSProperties => {
-    if (!layout) {
-        return {
-            display: "flex",
-            flexDirection: "column",
-            justifyContent: "flex-start",
-            alignItems: "flex-start",
-        };
-    }
-
-    return {
-        display: "flex",
-        flexDirection: layout.direction,
-        justifyContent: justifyMap[layout.justify],
-        alignItems: alignMap[layout.align],
-        gap: spacingToPx(layout.gap),
-        flexWrap: layout.wrap ? "wrap" : "nowrap",
-    };
-};
-
-const resolveStyle = (style: ResponsiveStyle, breakpoint: Breakpoint): StyleValue => {
-    const order: Breakpoint[] = ["lg", "md", "sm", "base"];
-    const endIndex = order.indexOf(breakpoint);
-
-    return order.slice(0, endIndex + 1).reduce<StyleValue>((acc, key) => {
-        const layer = style[key];
-
-        if (!layer) {
-            return acc;
-        }
-
-        return { ...acc, ...layer };
-    }, {});
-};
-
-const styleValueToCss = (value: StyleValue): CSSProperties => {
-    const css: CSSProperties = {};
-
-    css.width = value.width ? value.width : undefined;
-    css.height = value.height ? value.height : undefined;
-    css.minWidth = value.minWidth ? value.minWidth : undefined;
-    css.maxWidth = value.maxWidth ? value.maxWidth : undefined;
-    css.minHeight = value.minHeight ? value.minHeight : undefined;
-    css.maxHeight = value.maxHeight ? value.maxHeight : undefined;
-    css.margin = value.margin ? value.margin : undefined;
-    css.marginTop = value.marginTop ? value.marginTop : undefined;
-    css.marginRight = value.marginRight ? value.marginRight : undefined;
-    css.marginBottom = value.marginBottom ? value.marginBottom : undefined;
-    css.marginLeft = value.marginLeft ? value.marginLeft : undefined;
-    css.padding = value.padding ? value.padding : undefined;
-    css.paddingTop = value.paddingTop ? value.paddingTop : undefined;
-    css.paddingBottom = value.paddingBottom ? value.paddingBottom : undefined;
-    css.paddingLeft = value.paddingLeft ? value.paddingLeft : undefined;
-    css.backgroundColor = value.backgroundColor ? value.backgroundColor : undefined;
-    css.color = value.color ? value.color : undefined;
-    css.fontSize = value.fontSize ? value.fontSize : undefined;
-    css.fontWeight = value.fontWeight ? value.fontWeight : undefined;
-    css.textAlign = value.textAlign ? value.textAlign : undefined;
-    css.borderWidth = value.borderWidth ? value.borderWidth : undefined;
-    css.borderStyle = value.borderStyle ? value.borderStyle : undefined;
-    css.borderColor = value.borderColor ? value.borderColor : undefined;
-    css.borderRadius = value.borderRadius ? value.borderRadius : undefined;
-
-    return css;
-};
-
-const readStringProp = (
-  props: Record<string, unknown>,
-  key: string,
-  fallback: string,
-): string => {
-  const value = props[key];
-  return typeof value === "string" ? value : fallback;
-};
-
-const readNumberProp = (
-  props: Record<string, unknown>,
-  key: string,
-  fallback: number,
-): number => {
-  const value = props[key];
-  return typeof value === "number" && Number.isFinite(value) ? value : fallback;
-};
-
-export const textTags = ["p", "h1", "h2", "h3", "h4", "span"] as const;
 type TextTag = typeof textTags[number];
 const textTagSet: ReadonlySet<string> = new Set(textTags);
 
@@ -329,8 +233,8 @@ const NodeRenderer = ({
     const isHoverd = isEdit && hoveredNodeId === node.id && !isSelected;
 
     const resolved = resolveStyle(node.style, previewBreakpoint);
-    const baseCss = styleValueToCss(resolved);
-    const layoutCss = node.type === "container" ? layoutToCss(node.layout) : undefined;
+    const baseCss = styleValueToCssObject(resolved);
+    const layoutCss = node.type === "container" ? layoutToCssObject(node.layout) : undefined;
 
     const margedStyle: CSSProperties = {
         ...baseCss,

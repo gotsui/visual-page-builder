@@ -2,10 +2,10 @@
 
 import { BuilderNode, LayoutConfig, NodeType } from "@/lib/schema";
 import { ReactNode, useCallback, useEffect, useState } from "react";
-import { textTags } from "./NodeRenderer";
 import { useDocumentStore, useSelectedNode } from "@/lib/document-store";
 import { findNode } from "@/lib/tree-operations";
 import { getComponentDefinition } from "@/lib/component-registry";
+import { textTags } from "@/lib/node-view-model";
 
 type FieldProps = {
     label: string;

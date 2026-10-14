@@ -1,47 +1,9 @@
 "use client";
 
 import { useDocumentStore } from "@/lib/document-store";
-import { Align, PageLayout } from "@/lib/schema";
-import { CSSProperties, MouseEvent } from "react";
+import { MouseEvent } from "react";
 import NodeRenderer from "./NodeRenderer";
-import SortableNode from "./SortableNode";
-import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
-
-const pageJustifyMap: Record<PageLayout["justify"], CSSProperties["justifyContent"]> = {
-    start: "flex-start",
-    center: "center",
-    end: "flex-end",
-};
-
-const pageAlignMap: Record<Align, CSSProperties["alignItems"]> = {
-    start: "flex-start",
-    center: "center",
-    end: "flex-end",
-    stretch: "stretch",
-};
-
-const spacingToPx = (value: number): string => {
-    return `${value * 4}px`;
-};
-
-const pageLayoutToCss = (pageLayout: PageLayout): CSSProperties => {
-    const style: CSSProperties = {
-        display: "flex",
-        flexDirection: "column",
-        width: "100%",
-        maxWidth: pageLayout.maxWidth,
-        padding: spacingToPx(pageLayout.padding),
-        justifyContent: pageJustifyMap[pageLayout.justify],
-        alignItems: pageAlignMap[pageLayout.align],
-        boxSizing: "border-box",
-    };
-
-    if (pageLayout.background !== undefined) {
-        style.backgroundColor = pageLayout.background;
-    }
-
-    return style;
-};
+import { pageLayoutToCssObject } from "@/lib/node-view-model";
 
 const breakpointWidthMap = {
     base: 375,
@@ -79,7 +41,7 @@ export const Canvas = () => {
                 >
                     <div
                         className="relative flex-1 min-h-120 w-full"
-                        style={pageLayoutToCss(document.pageLayout)}
+                        style={pageLayoutToCssObject(document.pageLayout)}
                         onClick={handleBackgroundClick}
                         role="presentation"
                     >

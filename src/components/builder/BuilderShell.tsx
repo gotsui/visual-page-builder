@@ -7,6 +7,7 @@ import Palette from "./Palette";
 import { Canvas } from "./Canvas";
 import Inspector from "./Inspector";
 import BuilderDndProvider from "./BuilderDndProvider";
+import CodeExportPanel from "./CodeExportPanel";
 
 const previewModes: PreveiwMode[] = ["edit", "preview"] as const;
 const breakpoints: Breakpoint[] = ["lg", "md", "sm", "base"] as const;
@@ -31,7 +32,13 @@ const isBreakpoint = (value: string): value is Breakpoint => {
     return breakpoints.some((bp) => bp === value);
 };
 
-const BuilderHeader = () => {
+type BuilderHeaderProps = {
+    onOpenCode: () => void;
+};
+
+const BuilderHeader = ({
+    onOpenCode,
+}: BuilderHeaderProps) => {
     const { state, dispatch, undo, redo, canUndo, canRedo } = useDocumentStore();
     const { document, ui } = state;
 
@@ -105,6 +112,13 @@ const BuilderHeader = () => {
                     Redo
                 </button>
             </div>
+            <button
+                type="button"
+                className="rounded border border-slate-200 px-2 py-1 text-xs text-slate-600 hover:bg-slate-50"
+                onClick={onOpenCode}
+            >
+                コード
+            </button>
             <label className="flex items-center gap-1 text-xs text-slate-500">
                 モード
                 <select
@@ -138,9 +152,11 @@ const BuilderHeader = () => {
 };
 
 const BuilderShell = () => {
+    const [codeOpen, setCodeOpen] = useState(false);
+
     return (
         <div className="flex h-screen flex-col bg-white text-slate-900">
-            <BuilderHeader />
+            <BuilderHeader onOpenCode={() => setCodeOpen(true)} />
             <BuilderDndProvider>
                 <div className="flex -min-h-0 flex-1">
                     <Palette />
@@ -148,6 +164,7 @@ const BuilderShell = () => {
                     <Inspector />
                 </div>
             </BuilderDndProvider>
+            <CodeExportPanel open={codeOpen} onClose={() => setCodeOpen(false)} />
         </div>
     );
 };
