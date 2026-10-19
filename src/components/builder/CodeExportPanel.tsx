@@ -7,6 +7,7 @@ import { ChangeEvent, useCallback, useEffect, useMemo, useState } from "react";
 const formatLabel: Record<CodegenFormat, string> = {
     html: "HTML",
     jsx: "JSX",
+    tailwind: "Tailwind",
 };
 
 const isCodegenFormat = (value: string): value is CodegenFormat => {

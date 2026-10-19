@@ -1,8 +1,9 @@
 import { CSSProperties } from "react";
-import { alignMap, cssObjectToInline, justifyMap, layoutToCssObject, mergeCss, readNumberProp, readStringProp, sanitizeCss, spacingToPx, styleValueToCssObject, textTagSet, toObjectFit } from "./node-view-model";
+import { alignMap, cssObjectToInline, justifyMap, layoutToCssObject, mergeCss, NodeViewModel, pageLayoutToCssObject, readNumberProp, readStringProp, sanitizeCss, spacingToPx, styleValueToCssObject, textTagSet, toNodeViewModel, toObjectFit } from "./node-view-model";
 import { BuilderNode, NodeType, PageDocument, ResponsiveStyle, StyleValue } from "./schema";
+import { cssPropertiesToTailwind } from "./css-to-tailwind";
 
-export const codegenFormats = ["html", "jsx"] as const;
+export const codegenFormats = ["html", "jsx", "tailwind"] as const;
 export type CodegenFormat = (typeof codegenFormats)[number];
 
 export type CodegenOptions = {
@@ -45,19 +46,13 @@ type EmitContext = {
 };
 
 const openTag = (
-    tag: string,
-    attrs: Record<string, string | undefined>,
-    css: CSSProperties,
+    view: NodeViewModel,
     ctx: EmitContext,
     selfClosing: boolean,
 ): string => {
     const attrParts: string[] = [];
 
-    for (const [key, value] of Object.entries(attrs)) {
-        if (value === undefined) {
-            continue;
-        }
-
+    for (const [key, value] of Object.entries(view.attrs)) {
         if (ctx.format === "html") {
             attrParts.push(`${key}="${escapeHtml(value)}"`);
         } else {
@@ -66,24 +61,33 @@ const openTag = (
         }
     }
 
-    const cleanCss = sanitizeCss(css);
-    const hasCss = Object.keys(cleanCss).length > 0;
+    const cleanCss = sanitizeCss(view.css);
 
-    if (hasCss) {
-        if (ctx.format === "html") {
-            attrParts.push(`style="${escapeHtml(cssObjectToInline(cleanCss))}"`);
-        } else {
-            attrParts.push(`style=${cssObjectToJsx(cleanCss)}`);
+    if (ctx.format === "tailwind") {
+        const className = cssPropertiesToTailwind(cleanCss);
+
+        if (className.length > 0) {
+            attrParts.push(`className=${JSON.stringify(className)}`);
+        }
+    } else {
+        const hasCss = Object.keys(cleanCss).length > 0;
+
+        if (hasCss) {
+            if (ctx.format === "html") {
+                attrParts.push(`style="${escapeHtml(cssObjectToInline(cleanCss))}"`);
+            } else {
+                attrParts.push(`style=${cssObjectToJsx(cleanCss)}`);
+            }
         }
     }
 
     const attrStr = attrParts.length > 0 ? ` ${attrParts.join(" ")}` : "";
 
     if (selfClosing) {
-        return ctx.format === "html" ? `<${tag}${attrStr} />` : `<${tag}${attrStr} />`;
+        return`<${view.tag}${attrStr} />`;
     }
 
-    return `<${tag}${attrStr}>`;
+    return `<${view.tag}${attrStr}>`;
 };
 
 const resolveBaseStyle = (style: ResponsiveStyle): StyleValue => {
@@ -96,75 +100,27 @@ const emitNode = (
     depth: number,
 ): string => {
     const pad = " ".repeat(ctx.indentSize * depth);
-    const base = resolveBaseStyle(node.style);
-    const baseCss = styleValueToCssObject(base);
+    const view = toNodeViewModel(node, "lg");
 
-    const emitChildren = (children: BuilderNode[]): string => {
-        if (children.length === 0) {
-            return "";
-        }
+    if (view.selfClosing) {
+        return `${pad}${openTag(view, ctx, true)}`;
+    }
 
-        return children.map((child) => emitNode(child, ctx, depth + 1)).join("\n");
-    };
+    const text = view.text === undefined
+        ? ""
+        : ctx.format === "html"
+            ? escapeHtml(view.text)
+            : escapeJsxText(view.text);
 
-    const emitters: Record<NodeType, () => string> = {
-        container: () => {
-            const css = mergeCss(baseCss, layoutToCssObject(node.layout));
-            const open = openTag("div", {}, css, ctx, false);
-            const inner = emitChildren(node.children);
+    if (view.children.length === 0) {
+        return `${pad}${openTag(view, ctx, false)}${text}</${view.tag}>`;
+    }
 
-            if (!inner) {
-                return `${pad}${open}</div>`
-            }
+    const inner = view.children
+        .map((child) => emitNode(child, ctx, depth + 1))
+        .join("\n");
 
-            return `${pad}${open}\n${inner}\n${pad}</div>`;
-        },
-        text: () => {
-            const content = readStringProp(node.props, "content", "");
-            const tag = readStringProp(node.props, "tag", "p");
-            const safeTag = textTagSet.has(tag) ? tag : "p";
-            const text = ctx.format === "html" ? escapeHtml(content) : escapeJsxText(content);
-            const open = openTag(safeTag, {}, baseCss, ctx, false);
-            return `${pad}${open}${text}</${safeTag}>`;
-        },
-        button: () => {
-            const label = readStringProp(node.props, "label", "ボタン");
-            const variant = readStringProp(node.props, "variant", "primary");
-            const text = ctx.format === "html" ? escapeHtml(label) : escapeJsxText(label);
-            const open = openTag("button", { type: "button", "data-variant": variant }, baseCss, ctx, false);
-            return `${pad}${open}${text}</button>`;
-        },
-        image: () => {
-            const src = readStringProp(node.props, "src", "");
-            const alt = readStringProp(node.props, "alt", "");
-            const objectFitRaw = readStringProp(node.props, "objectFit", "cover");
-            const css = { ...baseCss, objectFit: toObjectFit(objectFitRaw) };
-
-            if (!src) {
-                const open = openTag("div", {}, css, ctx, false);
-                const placeholder = "画像未設定";
-                return `${pad}${open}${placeholder}</div>`;
-            }
-
-            return `${pad}${openTag("img", { src, alt }, css, ctx, true )}`;
-        },
-        input: () => {
-            const placeholder = readStringProp(node.props, "placeholder", "");
-            const inputType = readStringProp(node.props, "inputType", "text");
-            return `${pad}${openTag("input", { type: inputType, placeholder }, baseCss, ctx, true)}`;
-        },
-        spacer: () => {
-            const size = readNumberProp(node.props, "size", 16);
-            const css = mergeCss(baseCss, {
-                height: `${size}px`,
-                width: "100%",
-            });
-
-            return `${pad}${openTag("div", { "aria-hidden": "true" }, css, ctx, true)}`;
-        },
-    };
-
-    return emitters[node.type]();
+    return `${pad}${openTag(view, ctx, false)}\n${inner}\n${pad}</${view.tag}>`;
 };
 
 export const generateCode = (
@@ -182,22 +138,16 @@ export const generateCode = (
         return body.trimEnd() + "\n";
     }
 
-    const page = document.pageLayout;
-    const pageCss: CSSProperties = {
-        display: "flex",
-        flexDirection: "column",
-        width: "100%",
-        maxWidth: page.maxWidth,
-        padding: spacingToPx(page.padding),
-        justifyContent: justifyMap[page.justify] ?? "flex-start",
-        alignContent: alignMap[page.align] ?? "flex-start",
-        boxSizing: "border-box",
+    const pageCss = sanitizeCss(pageLayoutToCssObject(document.pageLayout));
+    const wrapperView: NodeViewModel = {
+        type: "container",
+        tag: "div",
+        attrs: {},
+        css: pageCss,
+        selfClosing: false,
+        children: [],
     };
 
-    if (page.background) {
-        pageCss.backgroundColor = page.background;
-    }
-
-    const open = openTag("div", {}, pageCss, ctx, false);
+    const open = openTag(wrapperView, ctx, false);
     return `${open}\n${body}\n</div>\n`;
 };
