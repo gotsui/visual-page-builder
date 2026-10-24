@@ -3,7 +3,6 @@ import {
     createDefaultLayout,
     createDefaultPageLayout,
     createDefaultStyle,
-    NodeType,
     PageDocument,
 } from "./schema";
 

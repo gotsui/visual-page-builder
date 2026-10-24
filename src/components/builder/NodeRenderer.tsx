@@ -142,18 +142,22 @@ const ImageBody = ({ node, style }: BodyProps) => {
 };
 
 const InputBody = ({ node, style }: BodyProps) => {
+    const label = readStringProp(node.props, "label", "");
     const placeholder = readStringProp(node.props, "placeholder", "");
     const inputType = readStringProp(node.props, "inputType", "text");
 
     return (
-        <input
-            type={inputType}
-            placeholder={placeholder}
-            style={style}
-            className="rounded border border-slate-300 px-2 py-1 text-sm"
-            readOnly
-            onMouseDown={(e) => e.preventDefault()}
-        />
+        <label className="flex flex-col gap-1 text-sm">
+            <span>{label}</span>
+            <input
+                type={inputType}
+                placeholder={placeholder}
+                style={style}
+                className="rounded border border-slate-300 px-2 py-1 text-sm"
+                readOnly
+                onMouseDown={(e) => e.preventDefault()}
+            />
+        </label>
     );
 };
 

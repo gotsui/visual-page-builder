@@ -82,6 +82,7 @@ export const ImagePropsSchema = z.object({
 });
 
 export const InputPropsSchema = z.object({
+    label: z.string().default(""),
     placeholder: z.string().default(""),
     inputType: z.enum(["text", "email", "password", "number", "tel", "url", "search"]).default("text"),
 });

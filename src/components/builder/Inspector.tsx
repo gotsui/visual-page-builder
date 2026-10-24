@@ -194,6 +194,15 @@ const InputPropsEditor = ({
 
     return (
         <>
+            <Field label="ラベル">
+                <input
+                    type="text"
+                    className={inputClassName}
+                    value={readString(local, "label", "")}
+                    onChange={(e) => setField("label", e.target.value)}
+                    onBlur={onBlurCommit}
+                />
+            </Field>
             <Field label="プレースホルダー">
                 <input
                     type="text"

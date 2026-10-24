@@ -1,6 +1,6 @@
 import { CSSProperties } from "react";
-import { alignMap, cssObjectToInline, justifyMap, layoutToCssObject, mergeCss, NodeViewModel, pageLayoutToCssObject, readNumberProp, readStringProp, sanitizeCss, spacingToPx, styleValueToCssObject, textTagSet, toNodeViewModel, toObjectFit } from "./node-view-model";
-import { BuilderNode, NodeType, PageDocument, ResponsiveStyle, StyleValue } from "./schema";
+import { cssObjectToInline, NodeViewModel, pageLayoutToCssObject, readStringProp, sanitizeCss, toNodeViewModel } from "./node-view-model";
+import { BuilderNode, PageDocument } from "./schema";
 import { cssPropertiesToTailwind } from "./css-to-tailwind";
 
 export const codegenFormats = ["html", "jsx", "tailwind"] as const;
@@ -90,15 +90,63 @@ const openTag = (
     return `<${view.tag}${attrStr}>`;
 };
 
-const resolveBaseStyle = (style: ResponsiveStyle): StyleValue => {
-    return style.base ?? {};
-};
+const emitLabeledControl = (
+    node: BuilderNode,
+    ctx: EmitContext,
+    depth: number,
+): string => {
+    const pad = " ".repeat(ctx.indentSize * depth);
+    const innerPad = " ".repeat(ctx.indentSize * (depth + 1));
+    const view = toNodeViewModel(node, "base");
+    const label = readStringProp(node.props, "label", "");
+
+    const controlCss = label.length > 0 ? {} : view.css;
+    const controlView: NodeViewModel = {
+        ...view,
+        css: controlCss,
+    };
+
+    const controlOpen = openTag(controlView, ctx, view.selfClosing);
+    const control =
+        view.selfClosing
+        ? `${controlOpen}`
+        : `${controlOpen}</${view.tag}>`;
+
+    if (label.length === 0) {
+        return `${pad}${control}`;
+    }
+
+    const labelCss = view.css;
+    const labelView: NodeViewModel = {
+        type: node.type,
+        tag: "label",
+        attrs: {},
+        css: labelCss,
+        selfClosing: false,
+        children: [],
+    };
+
+    const labelText = ctx.format === "html" ? escapeHtml(label) : escapeJsxText(label);
+
+    const open = openTag(labelView, ctx, false);
+
+    const inputLine = `${innerPad}${openTag(
+        { ...view, css: {}, selfClosing: true },
+        ctx,
+        true
+    )}`;
+    return `${pad}${open}\n${innerPad}<span>${labelText}</span>\n${inputLine}\n${pad}</label>`;
+}
 
 const emitNode = (
     node: BuilderNode,
     ctx: EmitContext,
     depth: number,
 ): string => {
+    if (node.type === "input") {
+        return emitLabeledControl(node, ctx, depth);
+    }
+
     const pad = " ".repeat(ctx.indentSize * depth);
     const view = toNodeViewModel(node, "lg");
 
